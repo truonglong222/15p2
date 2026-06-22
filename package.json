@@ -1,9 +1,6 @@
 {
-  "name": "okx-top10-alert",
+  "name": "okx-top10-bot",
   "version": "1.0.0",
-  "main": "bot.js",
   "type": "module",
-  "scripts": {
-    "start": "node bot.js"
-  }
+  "dependencies": {}
 }
