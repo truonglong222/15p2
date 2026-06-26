@@ -1,6 +1,5 @@
 {
-  "name": "okx-futures-telegram-bot",
-  "version": "1.0.0",
+  "name": "okx-bot",
   "type": "module",
   "dependencies": {
     "axios": "^1.6.0"
