@@ -24,24 +24,14 @@ function saveCooldown(data) {
 
 // ----------------- TELEGRAM -----------------
 async function sendTelegram(msg) {
-  const url = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`;
+  const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
 
-  try {
-    const res = await axios.post(url, {
-      chat_id: CHAT_ID,
-      text: msg,
-      parse_mode: "Markdown"
-    });
-
-    console.log("Telegram OK:", res.data);
-  } catch (err) {
-    console.error(
-      "Telegram Error:",
-      err.response?.data || err.message
-    );
-  }
+  await axios.post(url, {
+    chat_id: CHAT_ID,
+    text: msg,
+    parse_mode: "Markdown"
+  });
 }
-
 // ----------------- MAIN LOGIC -----------------
 async function runBot() {
   let coins = await getAllUSDTFutures();
