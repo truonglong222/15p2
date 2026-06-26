@@ -1,4 +1,3 @@
-
 import axios from "axios";
 import fs from "fs";
 
@@ -18,6 +17,18 @@ function loadState() {
 
 function saveState(data) {
   fs.writeFileSync(STATE_FILE, JSON.stringify(data, null, 2));
+}
+
+// 👉 OKX universal link (mở app nếu có)
+function buildOkxLink(instId) {
+  try {
+    if (!instId || !instId.includes("USDT-SWAP")) return null;
+
+    // OKX universal link (deep link chuẩn hiện tại)
+    return `https://www.okx.com/trade-swap/${instId.toLowerCase()}`;
+  } catch {
+    return null;
+  }
 }
 
 async function sendTelegram(text) {
@@ -59,7 +70,6 @@ async function run() {
 
   const tickers = await getTickers();
 
-  // sort 24h losers
   const ranked = tickers
     .map(t => {
       const last = Number(t.last);
@@ -89,18 +99,20 @@ async function run() {
   if (results.length === 0) return;
 
   for (const r of results) {
-    const link = `https://www.okx.com/trade-swap/${r.symbol.toLowerCase()}`;
+    const link = buildOkxLink(r.symbol);
 
-    const msg =
+    let msg =
 `🚨 OKX FUTURES SIGNAL
 
 ${r.symbol}
 24H: ${r.change24h.toFixed(2)}%
 15M: +${r.chg15m.toFixed(2)}%
-2H: +${r.chg2h.toFixed(2)}%
+2H: +${r.chg2h.toFixed(2)}%`;
 
-Link:
-${link}`;
+    // 👉 chỉ gắn link nếu tạo được
+    if (link) {
+      msg += `\n\n🔗 Open OKX:\n${link}`;
+    }
 
     await sendTelegram(msg);
     state[r.symbol] = now;
