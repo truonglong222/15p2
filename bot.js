@@ -59,7 +59,7 @@ async function runBot() {
       const diff =
         ((coin.last - ema20) / coin.last) * 100;
 
-      const isValid = diff > -1;
+      const isValid = diff > -2;
 
       const lastSent = cooldown[coin.instId] || 0;
       const isCooldown = now - lastSent < COOLDOWN_HOURS * 3600 * 1000;
