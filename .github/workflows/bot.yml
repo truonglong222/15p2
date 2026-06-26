@@ -1,23 +1,32 @@
-name: run bot
+name: OKX Coin Alert
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"
-  workflow_dispatch:
+  repository_dispatch:
+    types: [run-bot]
+
 
 jobs:
-  bot:
+  run:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 24
 
-      - run: npm install
+      - run: npm install axios
 
       - run: node bot.js
         env:
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
+
+      - name: Save state
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add state.json
+          git commit -m "update state" || exit 0
+          git push
