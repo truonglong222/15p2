@@ -42,27 +42,25 @@ async function runBot() {
     change24h: getChange24h(c)
   }));
 
-  // Sort giảm mạnh nhất
-  coins.sort((a, b) => a.change24h - b.change24h);
-
-  const top10 = coins.slice(0, 10);
+  // Lấy tất cả coin giảm trên 6% trong 24h
+  const filteredCoins = coins.filter(c => c.change24h < -6);
 
   const cooldown = loadCooldown();
   const now = Date.now();
 
   let results = [];
 
-  for (const coin of top10) {
+  for (const coin of filteredCoins) {
     try {
       const ema20 = await getEMA20(coin.instId);
 
-      const diff =
-        ((coin.last - ema20) / coin.last) * 100;
+      const diff = ((coin.last - ema20) / coin.last) * 100;
 
       const isValid = diff > -2;
 
       const lastSent = cooldown[coin.instId] || 0;
-      const isCooldown = now - lastSent < COOLDOWN_HOURS * 3600 * 1000;
+      const isCooldown =
+        now - lastSent < COOLDOWN_HOURS * 3600 * 1000;
 
       if (isValid && !isCooldown) {
         results.push({
