@@ -5,50 +5,64 @@ const BOT_TOKEN = process.env.BOT_TOKEN || "BOT_TOKEN";
 const CHAT_ID = process.env.CHAT_ID || "CHAT_ID";
 
 const TELEGRAM_URL = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+
 const CACHE_FILE = "./sent_cache.json";
 
-// =======================
-// Load cache
-// =======================
-function loadCache() {
-  if (!fs.existsSync(CACHE_FILE)) return {};
+// ========================================
+// Cache
+// ========================================
 
-  try {
-    return JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
-  } catch {
-    return {};
-  }
+function loadCache() {
+    if (!fs.existsSync(CACHE_FILE)) return {};
+
+    try {
+        return JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
+    } catch {
+        return {};
+    }
 }
 
 function saveCache(cache) {
-  fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2));
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2));
 }
 
-// =======================
+// ========================================
 // Telegram
-// =======================
-async function sendTelegram(text) {
-  try {
-    await axios.post(TELEGRAM_URL, {
-      chat_id: CHAT_ID,
-      text,
-      parse_mode: "HTML",
-      disable_web_page_preview: true
-    });
+// ========================================
 
-    console.log("Telegram sent");
-  } catch (e) {
-    console.log("Telegram Error:", e.response?.data || e.message);
-  }
+async function sendTelegram(text) {
+    try {
+        await axios.post(
+            TELEGRAM_URL,
+            {
+                chat_id: CHAT_ID,
+                text,
+                parse_mode: "HTML",
+                disable_web_page_preview: true
+            },
+            {
+                timeout: 15000
+            }
+        );
+
+        console.log("Telegram sent");
+    } catch (e) {
+        console.log("Telegram Error:", e.response?.data || e.message);
+    }
 }
 
-// =======================
-// Lấy toàn bộ Future
+// ========================================
+// Lấy toàn bộ Future USDT
+// ========================================
+
 async function getAllUSDTFutures() {
 
-    const url = "https://www.okx.com/api/v5/market/tickers?instType=SWAP";
+    const url =
+        "https://www.okx.com/api/v5/market/tickers?instType=SWAP";
 
-    const res = await axios.get(url);
+    const res = await axios.get(url, {
+        timeout: 15000
+    });
 
     return res.data.data
         .filter(i => i.instId.endsWith("-USDT-SWAP"))
@@ -57,130 +71,133 @@ async function getAllUSDTFutures() {
             const last = Number(i.last);
             const open24 = Number(i.sodUtc8);
 
-            const change24h =
+            const volatility24h =
                 open24 > 0
-                    ? ((last - open24) / open24) * 100
+                    ? Math.abs((last - open24) / open24 * 100)
                     : 0;
 
             return {
                 instId: i.instId,
-                last: last,
-                change24h: Math.abs(change24h)
+                last,
+                volatility24h
             };
         });
-
 }
-let futures = await getAllUSDTFutures();
 
-// Tính độ biến động 24h
-futures = futures.map(c => ({
-  ...c,
-  change24h: Math.abs(parseFloat(c.sodUtc8 || c.change24h || c.lastPr || c.last) || parseFloat(c.change24h || 0))
-}));
+// ========================================
+// % tăng 1H
+// ========================================
 
-// OKX ticker có trường sodUtc8 để tính %24h
-futures = futures.map(c => {
-  const last = parseFloat(c.last);
-
-  const open24 = parseFloat(c.sodUtc8);
-
-  return {
-    ...c,
-    volatility24h: open24 > 0
-      ? Math.abs((last - open24) / open24 * 100)
-      : 0
-  };
-});
-
-// Chọn 50 coin biến động mạnh nhất
-futures.sort((a, b) => b.volatility24h - a.volatility24h);
-
-futures = futures.slice(0, 50);
-// =======================
-// % tăng 1h
-// =======================
 async function get1hChange(instId) {
-  const url =
-    `https://www.okx.com/api/v5/market/candles?instId=${instId}&bar=1H&limit=2`;
 
-  const res = await axios.get(url);
+    const url =
+        `https://www.okx.com/api/v5/market/candles?instId=${instId}&bar=1H&limit=2`;
 
-  const data = res.data.data;
+    const res = await axios.get(url, {
+        timeout: 15000
+    });
 
-  if (data.length < 2) return null;
+    const data = res.data.data;
 
-  // dữ liệu trả về mới nhất trước
-  const latest = data[0];
-  const prev = data[1];
+    if (data.length < 2) return null;
 
-  const close = parseFloat(latest[4]);
-  const prevClose = parseFloat(prev[4]);
+    const latest = data[0];
+    const previous = data[1];
 
-  return ((close - prevClose) / prevClose) * 100;
+    const close = Number(latest[4]);
+    const prevClose = Number(previous[4]);
+
+    return ((close - prevClose) / prevClose) * 100;
 }
 
-// =======================
-// 3 nến 15p liên tiếp tăng
-// =======================
+// ========================================
+// 3 nến 15m tăng liên tiếp
+// ========================================
+
 async function check3Bullish15m(instId) {
-  const url =
-    `https://www.okx.com/api/v5/market/candles?instId=${instId}&bar=15m&limit=3`;
 
-  const res = await axios.get(url);
+    const url =
+        `https://www.okx.com/api/v5/market/candles?instId=${instId}&bar=15m&limit=3`;
 
-  const candles = res.data.data;
+    const res = await axios.get(url, {
+        timeout: 15000
+    });
 
-  if (candles.length < 3) return false;
+    const candles = res.data.data;
 
-  // API trả nến mới nhất trước -> đảo lại
-  candles.reverse();
+    if (candles.length < 3) return false;
 
-  for (const c of candles) {
-    const open = parseFloat(c[1]);
-    const close = parseFloat(c[4]);
+    candles.reverse();
 
-    if (close <= open) return false;
-  }
+    for (const candle of candles) {
 
-  return true;
+        const open = Number(candle[1]);
+        const close = Number(candle[4]);
+
+        if (close <= open) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
-// =======================
+// ========================================
 // MAIN
-// =======================
+// ========================================
+
 async function runBot() {
 
-  const cache = loadCache();
-  const now = Date.now();
+    const cache = loadCache();
 
-  const futures = await getAllUSDTFutures();
+    const now = Date.now();
 
-  for (const coin of futures) {
+    let futures = await getAllUSDTFutures();
 
-    try {
+    // Chọn 50 coin biến động mạnh nhất 24h
+    futures.sort(
+        (a, b) => b.volatility24h - a.volatility24h
+    );
 
-      const change1h = await get1hChange(coin.instId);
+    futures = futures.slice(0, 50);
 
-      if (change1h === null) continue;
+    console.log(`Scanning ${futures.length} coins...`);
 
-      if (change1h <= 3) continue;
+    for (const coin of futures) {
 
-      const bullish = await check3Bullish15m(coin.instId);
+        try {
 
-      if (!bullish) continue;
+            const change1h = await get1hChange(coin.instId);
 
-      const lastSent = cache[coin.instId] || 0;
+            if (change1h === null) continue;
 
-      // Không gửi lại trong 2 giờ
-      if (now - lastSent < 2 * 60 * 60 * 1000)
-        continue;
+            if (change1h <= 3) continue;
 
-      const price = Number(coin.last).toFixed(6);
+            const bullish =
+                await check3Bullish15m(coin.instId);
 
-      const msg =
+            if (!bullish) continue;
+
+            const lastSent =
+                cache[coin.instId] || 0;
+
+            // Không gửi lại trong 2 giờ
+            if (
+                now - lastSent <
+                2 * 60 * 60 * 1000
+            ) {
+                continue;
+            }
+
+            const price =
+                coin.last.toFixed(6);
+
+            const message =
 `🟢 <b>Coin thỏa điều kiện</b>
 
 💰 ${coin.instId}
+
+🔥 Biến động 24H: <b>${coin.volatility24h.toFixed(2)}%</b>
 
 📈 Tăng 1H: <b>${change1h.toFixed(2)}%</b>
 
@@ -188,16 +205,24 @@ async function runBot() {
 
 💵 Giá hiện tại: ${price}`;
 
-      await sendTelegram(msg);
+            await sendTelegram(message);
 
-      cache[coin.instId] = now;
+            cache[coin.instId] = now;
 
-    } catch (e) {
-      console.log(coin.instId, e.message);
+            console.log(`${coin.instId} sent`);
+
+        } catch (e) {
+
+            console.log(
+                coin.instId,
+                e.response?.data || e.message
+            );
+        }
     }
-  }
 
-  saveCache(cache);
+    saveCache(cache);
+
+    console.log("Done.");
 }
 
 runBot();
