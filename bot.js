@@ -1,13 +1,18 @@
-// Các thư viện bắt buộc - Cài đặt bằng: npm install axios
-const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
+// Sử dụng cú pháp ES Modules (import) theo cấu hình package.json của bạn
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Cấu hình lấy từ biến môi trường (Environment Variables trên GitHub Secrets)
 const TELEGRAM_BOT_TOKEN = process.env.BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.CHAT_ID;
 
 const OKX_BASE_URL = 'https://www.okx.com';
+
+// Định nghĩa __dirname cho môi trường ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const DB_FILE = path.join(__dirname, 'sentCoins.json');
 
 // Hàm đọc lịch sử gửi từ file JSON
